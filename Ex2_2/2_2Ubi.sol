@@ -4,6 +4,8 @@ pragma solidity >=0.4.16 <0.6.6;
 /// @author Rodrigo Rafael 
 /// 23/04/2020
 
+/// @title This contract allows several users to have a sigwallet for 
+/// sending ether to a specified address after 50% of the votes are in
 contract VotingTransfer{
     // constant for the percentage to be applied to the percentage field
     uint256 private constant PERCENTAGE_APPLIED = 50;
@@ -30,11 +32,15 @@ contract VotingTransfer{
         require(msg.sender == address(this));
         _;
     }
-    
+    modifier maxParticipants(){
+        require(owners.length < maxParticipants);
+        _;
+    }
     modifier _hasPaid(address _address){
         require(hasPaid[_address]);
         _;
     }
+    
     
     modifier _hasVoted(address _address){
         require(hasVoted[_address]);
@@ -51,7 +57,7 @@ contract VotingTransfer{
         _;
     }
     
-    
+    /// @param max_participants number of maximum participants / owners of the contract
     constructor(uint256 _max_participants) public {
         max_participants = _max_participants;
         percentage = PERCENTAGE_APPLIED;
@@ -59,15 +65,20 @@ contract VotingTransfer{
         self = address(this);
     }
     
+    /// @dev adds an owner
+    ///@param owner the owner that is to be added to the list of owners
     function addOwner(address owner)
         public
         //fromSelf()
         isntOwner(owner)
+        maxParticipants
     {
         isOwner[owner] = true;
         owners.push(owner);
     }
     
+    /// @dev removes an owner
+    ///@param owner the owner that is to be removed from the list of owners
     function removeOwner(address owner)
         public
         fromSelf()
@@ -78,7 +89,6 @@ contract VotingTransfer{
             ammountVotes--;
         }
         hasPaid[owner] = hasVoted[owner] = isOwner[owner] = false;
-        
         for(uint256 i = 0; i < owners.length - 1; i++){
             if(owners[i] == owner)
             {
@@ -90,7 +100,7 @@ contract VotingTransfer{
         }
     }
     
-    // allows deposit of ether
+    /// @dev allows deposit of ether
     function deposit() 
         public 
         payable 
@@ -99,6 +109,8 @@ contract VotingTransfer{
         hasPaid[msg.sender] = true;
     }
     
+    /// @dev function to vote for the tranfer of ether from this contract to
+    /// a certain address 
     function vote() 
         public 
         _isOwner(msg.sender) 
@@ -111,6 +123,8 @@ contract VotingTransfer{
         }
     }
     
+    /// @dev function to "unvote" (remove one's vote) for the tranfer of ether
+    /// from this contract to a certain address 
     function unvote() 
         public 
         _isOwner(msg.sender) 
@@ -121,6 +135,7 @@ contract VotingTransfer{
         ammountVotes--;
     }
     
+    /// @dev returns the balance of this contract
     function balance() 
         public 
         view 
@@ -129,6 +144,8 @@ contract VotingTransfer{
         return address(this).balance;
     }
     
+    /// @dev function for the trigger when 50% of the votes are payment
+    /// sends ether to the recipient
     function triggersend() private {
         
         recipient.transfer(address(this).balance);
@@ -136,6 +153,8 @@ contract VotingTransfer{
         ammountVotes = 0;
     }
     
+    
+    ///@dev function for putting all mappings values to false
     function resetmappings() private {
         for(uint256 i = 0; i < owners.length; i++)
         {
